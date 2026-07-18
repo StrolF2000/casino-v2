@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dimochka Millioner - Game Hub v2.0</title>
+    
+    <!-- SweetAlert2: для красивых попапов -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Howler.js: для работы со звуками -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <!-- Canvas Confetti: для анимации победы -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #1f1c2c, #928dab);
+            color: #ffffff;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        header {
+            background: linear-gradient(45deg, #ff416c, #ff4b2b);
+            padding: 15px 40px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(255, 65, 108, 0.4);
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+        h1 {
+            margin: 0; font-size: 2.3em; text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.4);
+        }
+        .header-stats {
+            display: flex; justify-content: center; gap: 15px; margin-top: 10px; align-items: center; flex-wrap: wrap;
+        }
+        .balance-box, .level-box {
+            font-size: 1.4em; color: #fff; background: rgba(0, 0, 0, 0.3);
+            padding: 5px 20px; border-radius: 50px; font-weight: bold;
+            border: 2px solid #ffdeae;
+        }
+        .global-bet {
+            background: #0f3460; color: #78ffd6; border: 2px solid #78ffd6; 
+            padding: 5px 15px; border-radius: 50px; font-weight: bold; font-size: 1.2em;
+        }
+        
+        /* Вкладки навигации */
+        .nav-tabs {
+            display: flex; justify-content: center; gap: 10px; margin-bottom: 25px; flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: #16213e; border: 2px solid #0f3460; color: white; padding: 10px 15px;
+            font-size: 1em; font-weight: bold; border-radius: 12px; cursor: pointer; transition: 0.2s;
+        }
+        .tab-btn:hover { background: #0f3460; }
+        .tab-btn.active {
+            background: linear-gradient(135deg, #ec008c, #fc6767); border-color: #fff;
+            box-shadow: 0 0 10px rgba(236,0,140,0.5);
+        }
+
+        .container {
+            display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start;
+            gap: 25px; max-width: 1400px; margin: 0 auto;
+        }
+        .game-panel { display: none; width: 100%; max-width: 700px; margin: 0 auto; }
+        .game-panel.active { display: block; }
+
+        .section {
+            background: rgba(22, 33, 62, 0.95); backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 25px;
+            padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); box-sizing: border-box;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #00b4db, #0083b0); border: none; color: white;
+            padding: 15px 20px; font-size: 1.2em; font-weight: bold; border-radius: 15px;
+            cursor: pointer; transition: transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 5px 15px rgba(0,180,219,0.4); width: 100%; margin-bottom: 10px;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-slots { background: linear-gradient(135deg, #ec008c, #fc6767); }
+        .btn-mega { background: linear-gradient(135deg, #a8ff78, #78ffd6); color: #111; }
+        .btn:disabled { background: #555 !important; color: #aaa !important; box-shadow: none !important; cursor: not-allowed; }
+
+        .cost-text { font-size: 1.1em; color: #ffdeae; margin-bottom: 15px; font-weight: bold; }
+        .status-message {
+            font-weight: bold; font-size: 1.1em; min-height: 60px; margin-top: 15px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.4); border-radius: 12px; padding: 10px;
+        }
+        .win { color: #2ecc71; text-shadow: 0 0 10px rgba(46,204,113,0.4); }
+        .lose { color: #ff4b2b; }
+
+        /* ИГРОВЫЕ СТИЛИ (Оставлены без изменений) */
+        .grid-3x3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; background: #0f3460; padding: 10px; border-radius: 15px; }
+        .grid-8x8 { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-bottom: 15px; background: #0f3460; padding: 8px; border-radius: 15px; }
+        .slot-cell {
+            background: radial-gradient(circle, #ffffff, #e0e0e0); display: flex; align-items: center; justify-content: center;
+            border-radius: 8px; box-shadow: inset 0 -2px 4px rgba(0,0,0,0.2); user-select: none; font-weight: bold;
+        }
+        .cell-3x3 { font-size: 2.5em; height: 75px; }
+        .cell-8x8 { font-size: 1.5em; height: 45px; }
+        .spinning { animation: blurSpin 0.1s infinite alternate; }
+        @keyframes blurSpin { 0% { transform: translateY(-2px); filter: blur(1px); } 100% { transform: translateY(2px); filter: blur(2px); } }
+        .win-glow { animation: winPulse 0.4s infinite alternate; background: radial-gradient(circle, #ffe066, #f5b041) !important; border: 2px solid #fff; }
+        @keyframes winPulse { 0% { transform: scale(1); } 100% { transform: scale(1.08); } }
+        .bank-vault { background: linear-gradient(135deg, #ffe259, #ffa751) !important; animation: bGlow 0.3s infinite alternate; }
+        @keyframes bGlow { 0% { box-shadow: 0 0 5px #ffe259; } 100% { box-shadow: 0 0 15px #ffa751; } }
+
+        #plinkoCanvas { background: #0f3460; border-radius: 15px; display: block; margin: 0 auto 15px auto; border: 2px solid rgba(255,255,255,0.1); }
+
+        .crash-display {
+            background: #0f3460; height: 200px; border-radius: 15px; position: relative; margin-bottom: 15px;
+            overflow: hidden; border: 2px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
+        }
+        .crash-mult { font-size: 3.5em; font-weight: bold; z-index: 2; text-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
+        .rocket { position: absolute; font-size: 2.5em; bottom: 20px; left: 20px; transition: all 0.1s linear; }
+
+        .wheel-container { position: relative; width: 260px; height: 260px; margin: 0 auto 20px auto; }
+        .wheel-canvas { border-radius: 50%; border: 5px solid #fff; box-shadow: 0 0 15px rgba(0,0,0,0.5); transform: rotate(0deg); transition: transform 4s cubic-bezier(0.1, 0.8, 0.3, 1); }
+        .wheel-pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); font-size: 2em; z-index: 10; }
+
+        /* ПРОФИЛЬ И МАГАЗИН (Новые стили) */
+        .xp-bar-container { background: #0f3460; border-radius: 10px; height: 20px; width: 100%; margin: 15px 0; overflow: hidden; border: 1px solid #78ffd6; }
+        .xp-bar-fill { background: linear-gradient(90deg, #a8ff78, #78ffd6); height: 100%; width: 0%; transition: width 0.3s; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+        .stat-box { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2); }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .shop-item { background: #0f3460; padding: 15px; border-radius: 15px; border: 2px solid #ec008c; }
+    
+.bet-box{margin:15px auto;padding:15px;max-width:260px;background:linear-gradient(135deg,#1b2945,#273c75);border:2px solid #00d2ff;border-radius:15px;box-shadow:0 0 15px rgba(0,210,255,.35)}
+.bet-box label{display:block;font-weight:bold;margin-bottom:8px;color:#78ffd6}
+.bet-input{width:100%;padding:10px;border-radius:10px;border:none;text-align:center;font-size:20px;font-weight:bold;background:#0f3460;color:#fff}
+
+.sidebar{position:fixed;left:0;top:90px;width:200px;background:#16213e;padding:15px;height:100vh;display:flex;flex-direction:column;gap:10px}
+.home-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+.home-card{background:#1f2a48;padding:20px;border-radius:16px;text-align:center}
+</style>
+</head>
+<body>
+
+    <header>
+        <h1>Dimochka Millioner 🎰 HUB</h1>
+        <div class="header-stats">
+            <div class="level-box" id="levelDisplay">Lvl 1 (0/1000 XP)</div>
+            <div class="balance-box" id="balance">1000 💰</div>
+            
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+<div class="sidebar">
+<button class="tab-btn active" onclick="switchTab('home')">🏠 Главная</button>
+<button class="tab-btn" onclick="switchTab('slot3x3')">🎰 Слот 3x3</button>
+<button class="tab-btn" onclick="switchTab('slot8x8')">💎 Bonanza</button>
+<button class="tab-btn" onclick="switchTab('plinko')">🟢 Plinko</button>
+<button class="tab-btn" onclick="switchTab('crash')">🚀 Crash</button>
+<button class="tab-btn" onclick="switchTab('wheel')">🎡 Колесо</button>
+</div>
+<div class="container" style="margin-left:220px;">
+        
+        <div id="tab-home" class="game-panel section active"><h2>🏠 Главная</h2><div class="home-grid">
+<div class="home-card"><button class="tab-btn" onclick="switchTab('miner')">⛏️ Майнинг</button></div>
+<div class="home-card"><button class="tab-btn" onclick="switchTab('profile')">👤 Профиль</button></div>
+<div class="home-card"><button class="tab-btn" onclick="switchTab('shop')">🛒 Магазин</button></div>
+</div></div>
+
+<!-- ВКЛАДКА: МАЙНИНГ -->
+        <div id="tab-miner" class="game-panel active section">
+            <h2>Майнинг валюты</h2>
+            <p>Кликай по кнопке ниже, чтобы зарабатывать вирт-валюту для ставок во всех играх казино!</p>
+            <button class="btn" onclick="mineMoney()" style="font-size: 1.5em; padding: 25px;">КЛИК! (+50 💰)</button>
+        </div>
+
+        <!-- ВКЛАДКА: СЛОТ 3х3 -->
+        <div id="tab-slot3x3" class="game-panel section">
+            <h2>Classic 3x3 Slot</h2>
+            
+<div class="bet-box">
+<label>💰 Ваша ставка</label>
+<input type="number" class="bet-input" min="300" max="100000" step="100" value="300" oninput="updateGameBet(this)">
+</div>
+            <div class="grid-3x3" id="grid3x3"></div>
+            <button class="btn btn-slots" id="spin3x3Btn" onclick="spin3x3()">КРУТИТЬ</button>
+            <div class="status-message" id="status3x3">Собери 3 в ряд (линии, вертикали, диагонали)</div>
+        </div>
+
+        <!-- ВКЛАДКА: СЛОТ 8х8 (BONANZA) -->
+        <div id="tab-slot8x8" class="game-panel section">
+            
+<h2>Bonanza Mega 8x8</h2>
+<div class="bet-box">
+<label>💰 Ваша ставка</label>
+<input type="number" class="bet-input" min="300" max="100000" step="100" value="300" oninput="updateGameBet(this)">
+</div>
+
+            
+            <div style="margin-bottom: 15px; display: flex; justify-content: center;">
+                <button id="auto8x8Btn" onclick="toggleAuto8x8()" style="background: #16213e; border: 2px solid #ec008c; color: white; padding: 10px 20px; font-size: 1em; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s;">
+                    🔄 АВТО: ВЫКЛ
+                </button>
+            </div>
+
+            <div class="grid-8x8" id="grid8x8"></div>
+            <button class="btn btn-mega" id="spin8x8Btn" onclick="spin8x8()">ЗАПУСТИТЬ МЕГА-СПИН</button>
+            <div class="status-message" id="status8x8">Ищи ряды от 4+ символов и Золотой Банк 🏦!</div>
+        </div>
+
+        <!-- ВКЛАДКА: PLINKO -->
+        <div id="tab-plinko" class="game-panel section">
+            <h2>Plinko</h2>
+            
+<div class="bet-box">
+<label>💰 Ваша ставка</label>
+<input type="number" class="bet-input" min="300" max="100000" step="100" value="300" oninput="updateGameBet(this)">
+</div>
+            <canvas id="plinkoCanvas" width="400" height="400"></canvas>
+            <button class="btn" id="plinkoBtn" onclick="startPlinko()" style="background: linear-gradient(135deg, #11998e, #38ef7d);">БРОСИТЬ ШАРИК</button>
+            <div class="status-message" id="statusPlinko">Шарик попадёт в одну из корзин с иксами снизу!</div>
+        </div>
+
+        <!-- ВКЛАДКА: CRASH -->
+        <div id="tab-crash" class="game-panel section">
+            <h2>Crash Rocket</h2>
+            
+<div class="bet-box">
+<label>💰 Ваша ставка</label>
+<input type="number" class="bet-input" min="300" max="100000" step="100" value="300" oninput="updateGameBet(this)">
+</div>
+            <div class="crash-display" id="crashDisplay">
+                <div class="crash-mult" id="crashMult">1.00x</div>
+                <div class="rocket" id="rocket">🚀</div>
+            </div>
+            <button class="btn" id="crashBtn" onclick="triggerCrashAction()" style="background: linear-gradient(135deg, #f12711, #f5af19);">ВЗЛЕТЕТЬ</button>
+            <div class="status-message" id="statusCrash">Каждый миг ракета может взорваться. Успей забрать куш!</div>
+        </div>
+
+        <!-- ВКЛАДКА: КОЛЕСО УДАЧИ -->
+        <div id="tab-wheel" class="game-panel section">
+            <h2>Колесо Удачи</h2>
+            
+<div class="bet-box">
+<label>💰 Ваша ставка</label>
+<input type="number" class="bet-input" min="300" max="100000" step="100" value="300" oninput="updateGameBet(this)">
+</div>
+            <div class="wheel-container">
+                <div class="wheel-pointer">👇</div>
+                <canvas id="wheelCanvas" class="wheel-canvas" width="250" height="250"></canvas>
+            </div>
+            <button class="btn" id="wheelBtn" onclick="spinWheel()" style="background: linear-gradient(135deg, #8e2de2, #4a00e0);">КРУТИТЬ КОЛЕСО</button>
+            <div class="status-message" id="statusWheel">Испытай удачу на большом колесе!</div>
+        </div>
+
+        <!-- ВКЛАДКА: ПРОФИЛЬ (НОВАЯ) -->
+        <div id="tab-profile" class="game-panel section">
+            <h2>Профиль Игрока</h2>
+            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Dimochka" alt="Avatar" style="width:100px; border-radius:50%; background:#fff; padding:5px; margin-bottom:10px;">
+            <h3>Dima Millionaire</h3>
+            <p style="color: #ffdeae;">Твой прогресс:</p>
+            <div class="xp-bar-container">
+                <div class="xp-bar-fill" id="xpBarFill"></div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div style="font-size: 2em;">🎰</div>
+                    <div style="font-size: 1.2em; font-weight: bold;" id="statSpins">0</div>
+                    <div>Всего игр</div>
+                </div>
+                <div class="stat-box">
+                    <div style="font-size: 2em;">💰</div>
+                    <div style="font-size: 1.2em; font-weight: bold; color: #2ecc71;" id="statWon">0</div>
+                    <div>Всего выиграно</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ВКЛАДКА: МАГАЗИН (НОВАЯ) -->
+        <div id="tab-shop" class="game-panel section">
+            <h2>Магазин</h2>
+            <p>Трать баланс на кастомизацию (в разработке для следующих патчей)</p>
+            <div class="shop-grid">
+                <div class="shop-item">
+                    <h3>👑 VIP Статус</h3>
+                    <p>Множитель XP x2 на час</p>
+                    <button class="btn" onclick="alert('Скоро!')">50 000 💰</button>
+                </div>
+                <div class="shop-item">
+                    <h3>🎨 Золотая тема</h3>
+                    <p>Премиум фон для сайта</p>
+                    <button class="btn" onclick="alert('Скоро!')">100 000 💰</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ================= ДАННЫЕ ИГРОКА v2.0 =================
+        let balance = 1000;
+        let globalBet = 300;
+        
+        let playerStats = {
+            level: 1,
+            xp: 0,
+            totalSpins: 0,
+            totalWon: 0
+        };
+
+        const items = ['💩', '❌', '💎', '💰', '💍', '💀', '7️⃣', '🍉', '🏦'];
+        
+        const payouts3x3 = { '💩': 0.2, '❌': 0.5, '🍉': 1.2, '💀': 2, '💍': 3, '7️⃣': 5, '💎': 10, '💰': 20 };
+        const payouts8x8 = { '💩': 0.1, '❌': 0.3, '🍉': 1.2, '💀': 0.0, '💍': 1.7, '7️⃣': 2.0, '💎': 5.0, '💰': 10.0 };
+        const bankMultipliers = [1, 2, 4, 8, 16, 32, 64, 128];
+
+        let isAuto8x8 = false;
+        let autoInterval8x8 = null;
+
+        // ================= СИСТЕМА ПРОГРЕССА =================
+        function updateGameBet(input){let value=parseInt(input.value);if(isNaN(value))value=300;if(value<300)value=300;if(value>100000)value=100000;input.value=value;globalBet=value;document.querySelectorAll(".bet-input").forEach(i=>{if(i!==input)i.value=value;});}
+function updateGlobalBet() {
+            globalBet = parseInt(document.getElementById('globalBetSelect').value);
+            document.querySelectorAll('.dynamic-cost').forEach(el => {
+                el.textContent = `Текущая ставка: ${globalBet} 💰`;
+            });
+        }
+
+        function addXP(amount) {
+            playerStats.xp += amount;
+            let xpNeeded = playerStats.level * 1000;
+            
+            if(playerStats.xp >= xpNeeded) {
+                playerStats.xp -= xpNeeded;
+                playerStats.level++;
+                
+                // Красивое уведомление о новом уровне
+                Swal.fire({
+                    title: `Уровень ${playerStats.level}!`,
+                    text: 'Твой статус растет!',
+                    icon: 'success',
+                    background: '#16213e',
+                    color: '#fff',
+                    confirmButtonColor: '#ff416c'
+                });
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            }
+            updateUI();
+        }
+
+        function recordSpin(winAmount) {
+            playerStats.totalSpins++;
+            if(winAmount > 0) {
+                playerStats.totalWon += winAmount;
+                // Анимация BIG WIN
+                if(winAmount >= globalBet * 10) {
+                    Swal.fire({
+                        title: '✨ BIG WIN! ✨',
+                        text: `Ты выиграл ${winAmount} 💰!`,
+                        imageUrl: 'https://media.giphy.com/media/xTiTnqUxyWbsAXq7Ju/giphy.gif',
+                        imageWidth: 200,
+                        imageHeight: 200,
+                        background: '#0f3460',
+                        color: '#ffdeae'
+                    });
+                    confetti({ particleCount: 200, spread: 100 });
+                }
+            }
+            addXP(Math.floor(globalBet / 10)); // Даем XP за размер ставки
+        }
+
+        function updateUI() { 
+            document.getElementById('balance').textContent = balance + " 💰"; 
+            
+            let xpNeeded = playerStats.level * 1000;
+            document.getElementById('levelDisplay').textContent = `Lvl ${playerStats.level} (${Math.floor(playerStats.xp)}/${xpNeeded} XP)`;
+            
+            let progress = (playerStats.xp / xpNeeded) * 100;
+            document.getElementById('xpBarFill').style.width = `${progress}%`;
+            
+            document.getElementById('statSpins').textContent = playerStats.totalSpins;
+            document.getElementById('statWon').textContent = playerStats.totalWon;
+            
+            saveGame(); // Сохраняем при каждом обновлении UI
+        }
+        
+        function mineMoney() { balance += 50; updateUI(); }
+
+        // Переключение вкладок
+        function switchTab(tabId) {
+            if (tabId !== 'slot8x8') stopAuto8x8();
+            document.querySelectorAll('.game-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+            if(tabId === 'plinko') drawPlinkoBoard();
+            updateUI();
+        }
+
+        // Автоматическая генерация игровых полей
+        const c3x3 = []; const g3 = document.getElementById('grid3x3');
+        for(let i=0;i<9;i++){ let c=document.createElement('div'); c.className='slot-cell cell-3x3'; c.textContent='❓'; g3.appendChild(c); c3x3.push(c); }
+        const c8x8 = []; const g8 = document.getElementById('grid8x8');
+        for(let i=0;i<64;i++){ let c=document.createElement('div'); c.className='slot-cell cell-8x8'; c.textContent='❓'; g8.appendChild(c); c8x8.push(c); }
+
+        // ================= СЛОТ 3х3 (Обновлен под Global Bet) =================
+        function spin3x3() {
+            if(balance < globalBet) return; 
+            balance -= globalBet; 
+            updateUI();
+            
+            const btn = document.getElementById('spin3x3Btn'); btn.disabled = true;
+            c3x3.forEach(c => c.classList.remove('win-glow'));
+            c3x3.forEach((cell, i) => {
+                cell.classList.add('spinning');
+                let si = setInterval(() => { cell.textContent = items[Math.floor(Math.random()*(items.length-1))]; }, 60);
+                setTimeout(() => {
+                    clearInterval(si); cell.classList.remove('spinning');
+                    cell.textContent = items[Math.floor(Math.random()*(items.length-1))];
+                    if(i===8) {
+                        let g = c3x3.map(c => c.textContent), lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]], win = 0;
+                        lines.forEach(l => { if(g[l[0]]===g[l[1]] && g[l[1]]===g[l[2]]) { win += globalBet * payouts3x3[g[l[0]]]; l.forEach(idx => c3x3[idx].classList.add('win-glow')); } });
+                        win = Math.floor(win);
+                        if(win > 0) { balance += win; document.getElementById('status3x3').textContent = `🎉 Победа: +${win} 💰!`; document.getElementById('status3x3').className='status-message win'; }
+                        else { document.getElementById('status3x3').textContent = '💨 Мимо!'; document.getElementById('status3x3').className='status-message lose'; }
+                        
+                        recordSpin(win);
+                        btn.disabled = false;
+                    }
+                }, 400 + i*60);
+            });
+        }
+
+        // ================= ЛОГИКА АВТОСПИНОВ BONANZA =================
+        function toggleAuto8x8() {
+            const autoBtn = document.getElementById('auto8x8Btn');
+            if (!isAuto8x8) {
+                if (balance < globalBet) { alert("Недостаточно баланса!"); return; }
+                isAuto8x8 = true;
+                autoBtn.textContent = "🔄 АВТО: ВКЛ";
+                autoBtn.style.background = "#ec008c";
+                spin8x8();
+            } else { stopAuto8x8(); }
+        }
+
+        function stopAuto8x8() {
+            isAuto8x8 = false;
+            const autoBtn = document.getElementById('auto8x8Btn');
+            if(autoBtn) { autoBtn.textContent = "🔄 АВТО: ВЫКЛ"; autoBtn.style.background = "#16213e"; }
+            if (autoInterval8x8) { clearTimeout(autoInterval8x8); autoInterval8x8 = null; }
+        }
+
+        // ================= СЛОТ 8х8 (BONANZA) =================
+        function spin8x8() {
+            if(balance < globalBet) {
+                document.getElementById('status8x8').textContent = '❌ Недостаточно средств!';
+                document.getElementById('status8x8').className = 'status-message lose';
+                stopAuto8x8(); return;
+            }
+            
+            balance -= globalBet; updateUI();
+            const btn = document.getElementById('spin8x8Btn'); btn.disabled = true;
+            
+            
+            c8x8.forEach(c => c.classList.remove('win-glow','bank-vault'));
+            
+            c8x8.forEach((cell, i) => {
+                cell.classList.add('spinning');
+                let si = setInterval(() => { cell.textContent = items[Math.floor(Math.random()*items.length)]; }, 50);
+                
+                setTimeout(() => {
+                    clearInterval(si); 
+                    cell.classList.remove('spinning');
+                    cell.textContent = items[Math.floor(Math.random()*items.length)];
+                    
+                    if(cell.textContent==='🏦') cell.classList.add('bank-vault');
+                    
+                    if(i===63) {
+                        let matrix = [], size = 8;
+                        for(let r=0; r<size; r++) matrix.push(c8x8.slice(r*size, (r+1)*size).map(c=>c.textContent));
+                        let winCells = Array(64).fill(false), baseWin = 0, hasBank = c8x8.some(c=>c.textContent==='🏦');
+                        
+                        function checkLine(coords) {
+                            if(coords.length < 4) return; 
+                            let streak = [coords[0]];
+                            for(let i=1; i<coords.length; i++) {
+                                if(matrix[coords[i].r][coords[i].c] === matrix[coords[i-1].r][coords[i-1].c] && matrix[coords[i].r][coords[i].c]!=='🏦') { 
+                                    streak.push(coords[i]); 
+                                } else { 
+                                    if(streak.length>=4){ 
+                                        let s=matrix[streak[0].r][streak[0].c]; 
+                                        baseWin += Math.floor(globalBet * payouts8x8[s] * (streak.length - 3)); 
+                                        streak.forEach(p=>winCells[p.r*size+p.c]=true); 
+                                    } 
+                                    streak=[coords[i]]; 
+                                }
+                            }
+                            if(streak.length>=4){ 
+                                let s=matrix[streak[0].r][streak[0].c]; 
+                                baseWin += Math.floor(globalBet * payouts8x8[s] * (streak.length - 3)); 
+                                streak.forEach(p=>winCells[p.r*size+p.c]=true); 
+                            }
+                        }
+                        
+                        for(let i=0; i<size; i++) {
+                            let rC=[], cC=[]; for(let j=0; j<size; j++) { rC.push({r:i,c:j}); cC.push({r:j,c:i}); } checkLine(rC); checkLine(cC);
+                        }
+                        for(let k=-size+1; k<size; k++) {
+                            let d1=[], d2=[]; for(let r=0; r<size; r++) { let c1=r+k, c2=(size-1-r)+k; if(c1>=0&&c1<size) d1.push({r:r,c:c1}); if(c2>=0&&c2<size) d2.push({r:r,c:c2}); } checkLine(d1); checkLine(d2);
+                        }
+                        
+                        winCells.forEach((w,idx)=>{if(w)c8x8[idx].classList.add('win-glow')});
+                        let stat = document.getElementById('status8x8');
+                        let finalWin = 0;
+
+                        if(baseWin>0) {
+                            if(hasBank) { 
+                                let rx=bankMultipliers[Math.floor(Math.random()*bankMultipliers.length)]; 
+                                finalWin = baseWin*rx; 
+                                balance+=finalWin; 
+                                stat.innerHTML=`🏦 БАНК Х${rx}! Итог: +${finalWin} 💰!`; 
+                                stat.className='status-message win'; 
+                            } else { 
+                                finalWin = baseWin;
+                                balance+=finalWin; 
+                                stat.textContent=`🎉 Выигрыш: +${finalWin} 💰`; 
+                                stat.className='status-message win'; 
+                            }
+                        } else { 
+                            stat.textContent=hasBank?'🏦 Банк пуст!':'💨 Нет линий'; 
+                            stat.className='status-message lose'; 
+                        }
+                        
+                        recordSpin(finalWin);
+                        btn.disabled = false;
+                        
+
+                        if (isAuto8x8) {
+                            autoInterval8x8 = setTimeout(() => {
+                                if (isAuto8x8) spin8x8();
+                            }, 1500);
+                        }
+                    }
+                }, 400 + Math.floor(i/8)*80);
+            });
+        }
+
+        // ================= PLINKO =================
+        const pCanvas = document.getElementById('plinkoCanvas'); const pCtx = pCanvas.getContext('2d');
+        const plinkoMultipliers = [10, 3, 1.5, 0.5, 0.2, 0.5, 1.5, 3, 10];
+        function drawPlinkoBoard() {
+            pCtx.clearRect(0,0,400,400); pCtx.fillStyle = '#fff';
+            let rows = 8;
+            for(let r=2; r<rows+2; r++) {
+                let dots = r + 1;
+                for(let d=0; d<dots; d++) {
+                    let x = 200 - (r * 18) + (d * 36), y = 40 + (r * 32);
+                    pCtx.beginPath(); pCtx.arc(x,y,4,0,Math.PI*2); pCtx.fill();
+                }
+            }
+            for(let i=0; i<9; i++) {
+                pCtx.fillStyle = i===0||i===8 ? '#ef5350' : i===1||i===7 ? '#ffca28' : '#66bb6a';
+                pCtx.fillRect(15 + i*41, 360, 38, 30);
+                pCtx.fillStyle = '#fff'; pCtx.font = '11px sans-serif';
+                pCtx.fillText(plinkoMultipliers[i]+'x', 20 + i*41, 380);
+            }
+        }
+        function startPlinko() {
+            if(balance < globalBet) return; balance -= globalBet; updateUI();
+            const btn = document.getElementById('plinkoBtn'); btn.disabled = true;
+            let bx = 200, by = 40, currentLines = 2, totalRows = 8;
+            let timer = setInterval(() => {
+                by += 32; bx += Math.random() > 0.5 ? 18 : -18; currentLines++;
+                drawPlinkoBoard(); pCtx.fillStyle = '#ffeb3b'; pCtx.beginPath(); pCtx.arc(bx,by,7,0,Math.PI*2); pCtx.fill();
+                if(currentLines >= totalRows + 2) {
+                    clearInterval(timer);
+                    let bucket = Math.floor((bx - 15) / 41); bucket = Math.max(0, Math.min(8, bucket));
+                    let win = Math.floor(globalBet * plinkoMultipliers[bucket]); balance += win; 
+                    document.getElementById('statusPlinko').textContent = `🟢 Шарик упал в ячейку ${plinkoMultipliers[bucket]}x. Награда: +${win} 💰!`;
+                    document.getElementById('statusPlinko').className = win>=globalBet?'status-message win':'status-message lose';
+                    
+                    recordSpin(win);
+                    btn.disabled = false;
+                }
+            }, 150);
+        }
+
+        // ================= CRASH =================
+        let crashInterval, crashMult = 1.00, currentStage = 'idle', crashLimit = 0;
+        function triggerCrashAction() {
+            const btn = document.getElementById('crashBtn');
+            const stat = document.getElementById('statusCrash');
+            const rocket = document.getElementById('rocket');
+            
+            if (currentStage === 'idle') {
+                if(balance < globalBet) return; balance -= globalBet; updateUI();
+                currentStage = 'flying'; btn.textContent = 'ЗАБРАТЬ КУШ'; btn.style.background = '#4caf50';
+                crashMult = 1.00; stat.textContent = 'Ракета летит! Множитель растет!'; stat.className='status-message';
+                
+
+                let r = Math.random();
+                crashLimit = r < 0.08 ? 1.00 : r < 0.5 ? 1.2 + Math.random()*2 : r < 0.9 ? 3 + Math.random()*10 : 15 + Math.random()*40;
+                
+                crashInterval = setInterval(() => {
+                    crashMult += 0.03 + (crashMult * 0.015);
+                    document.getElementById('crashMult').textContent = crashMult.toFixed(2) + 'x';
+                    document.getElementById('crashMult').style.color = '#fff';
+                    rocket.style.bottom = Math.min(140, 20 + crashMult*8) + 'px';
+                    rocket.style.left = Math.min(450, 20 + crashMult*25) + 'px';
+
+                    if (crashMult >= crashLimit) {
+                        clearInterval(crashInterval); currentStage = 'idle';
+                        document.getElementById('crashMult').textContent = 'BOOM!';
+                        document.getElementById('crashMult').style.color = '#ff4b2b';
+                        stat.textContent = `💥 Ракета разбилась на отметке ${crashLimit.toFixed(2)}x. Ставка сгорела!`;
+                        stat.className = 'status-message lose';
+                        btn.textContent = 'ВЗЛЕТЕТЬ'; btn.style.background = 'linear-gradient(135deg, #f12711, #f5af19)';
+                        
+                        recordSpin(0);
+                        
+                    }
+                }, 100);
+            } else if (currentStage === 'flying') {
+                clearInterval(crashInterval); currentStage = 'idle';
+                let win = Math.floor(globalBet * crashMult); balance += win; 
+                stat.textContent = `🎉 Успешная эвакуация! Забрал икс ${crashMult.toFixed(2)}x. Награда: +${win} 💰`;
+                stat.className = 'status-message win';
+                btn.textContent = 'ВЗЛЕТЕТЬ'; btn.style.background = 'linear-gradient(135deg, #f12711, #f5af19)';
+                setTimeout(() => { rocket.style.bottom = '20px'; rocket.style.left = '20px'; }, 500);
+                
+                recordSpin(win);
+                
+            }
+        }
+
+        // ================= КОЛЕСО УДАЧИ =================
+        const wCanvas = document.getElementById('wheelCanvas'); const wCtx = wCanvas.getContext('2d');
+        const wheelSectors = [
+            { txt: '0x', color: '#e74c3c', mult: 0 }, { txt: '1.5x', color: '#3498db', mult: 1.5 },
+            { txt: '0.5x', color: '#f1c40f', mult: 0.5 }, { txt: '2x', color: '#2ecc71', mult: 2 },
+            { txt: '0x', color: '#e74c3c', mult: 0 }, { txt: '3x', color: '#9b59b6', mult: 3 },
+            { txt: '0.2x', color: '#e67e22', mult: 0.2 }, { txt: '5x', color: '#1abc9c', mult: 5 }
+        ];
+        function drawWheel() {
+            let arc = (Math.PI * 2) / 8;
+            for (let i = 0; i < 8; i++) {
+                wCtx.fillStyle = wheelSectors[i].color; wCtx.beginPath();
+                wCtx.moveTo(125, 125); wCtx.arc(125, 125, 120, i * arc, (i + 1) * arc); wCtx.fill();
+                wCtx.save(); wCtx.fillStyle = '#fff'; wCtx.font = 'bold 14px sans-serif';
+                wCtx.translate(125, 125); wCtx.rotate(i * arc + arc / 2);
+                wCtx.fillText(wheelSectors[i].txt, 65, 5); wCtx.restore();
+            }
+        }
+        drawWheel();
+
+        let currentRotation = 0;
+        function spinWheel() {
+            if(balance < globalBet) return; balance -= globalBet; updateUI();
+            const btn = document.getElementById('wheelBtn'); btn.disabled = true;
+            const wheelElement = document.getElementById('wheelCanvas');
+            
+            let randomSector = Math.floor(Math.random() * 8);
+            let sectorArcDegrees = 360 / 8;
+            let targetDegrees = 270 - (randomSector * sectorArcDegrees) - (sectorArcDegrees / 2);
+            let extraSpins = 360 * 4; 
+            currentRotation += extraSpins + (targetDegrees - (currentRotation % 360));
+            
+            wheelElement.style.transform = `rotate(${currentRotation}deg)`;
+
+            setTimeout(() => {
+                let sec = wheelSectors[randomSector];
+                let win = Math.floor(globalBet * sec.mult); balance += win; 
+                let stat = document.getElementById('statusWheel');
+                stat.textContent = `🎡 Колесо остановилось на секторе ${sec.txt}! Награда: +${win} 💰`;
+                stat.className = win >= globalBet ? 'status-message win' : 'status-message lose';
+                
+                recordSpin(win);
+                btn.disabled = false;
+            }, 4000); 
+        }
+    
+        // ======== АВТОСОХРАНЕНИЕ v2.0 ========
+        function saveGame(){
+            const data = {
+                balance: balance,
+                globalBet: globalBet,
+                stats: playerStats
+            };
+            localStorage.setItem('casinoSaveV2', JSON.stringify(data));
+        }
+        function loadGame(){
+            const raw = localStorage.getItem('casinoSaveV2');
+            if(raw) {
+                try{
+                    const d = JSON.parse(raw);
+                    balance = d.balance ?? balance;
+                    globalBet = d.globalBet ?? globalBet;
+                    if(d.stats) playerStats = d.stats;
+                }catch(e){}
+            }
+            // Синхронизируем UI с загруженными данными
+            document.querySelectorAll('.bet-input').forEach(i=>i.value=globalBet);
+            updateGlobalBet(); // Чтобы обновить текст "Текущая ставка" в играх
+            updateUI(); // Обновляет баланс, уровни и статистику в профиле
+        }
+        
+        window.addEventListener('load', loadGame);
+
+    </script>
+</body>
+
+</html>
